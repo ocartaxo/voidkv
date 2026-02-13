@@ -1,4 +1,4 @@
-#include <sdtint.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -9,66 +9,67 @@
 #include <netinet/ip.h>
 
 
+static void msg(const char *msg) {
+  fprintf(stderr, "%s\n", msg);
+}
+
 static void die(const char *msg) {
   int err = errno;
   fprintf(stderr, "[%d] %s\n", err, msg);
   abort();
 }
 
-
-static void do_something(int connfd){
+static void do_something(int connfd) {
   char rbuf[64] = {};
   ssize_t n = read(connfd, rbuf, sizeof(rbuf) - 1);
   if (n < 0) {
     msg("read() error");
-    return ;
+    return;
   }
-  printf("client says: %s\n", rbuf);
+  fprintf(stderr, "client says: %s\n", rbuf);
 
   char wbuf[] = "world";
   write(connfd, wbuf, strlen(wbuf));
 }
 
 int main() {
-  // obtain socket handle
   int fd = socket(AF_INET, SOCK_STREAM, 0);
-  
-  /* Set the socket options
-   * reference: https://stackoverflow.com/a/3233022https://stackoverflow.com/a/3233022
-   */
+  if (fd < 0) {
+    die("socket()");
+  }
+
+  // this is needed for most server applications
   int val = 1;
   setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, &val, sizeof(val));
 
+  // bind
   struct sockaddr_in addr = {};
-  addr.sin_familly = AF_INET;
-  addr.sin_port = htons(1234);          // port
-  addr.sin_addr.s_addr = htonl(0);      // wildcard IP (0.0.0.0)
-  int rv = bind(fd, (const struct sockaddr *)&addr, sizeof(addr))
+  addr.sin_family = AF_INET;
+  addr.sin_port = ntohs(1234);
+  addr.sin_addr.s_addr = ntohl(0);    // wildcard address 0.0.0.0
+  int rv = bind(fd, (const struct sockaddr *)&addr, sizeof(addr));
   if (rv) {
     die("bind()");
   }
 
-  /*
-   * SOMAXCON is the size of the queue. In Linux is 4096 positions
-   */
+  // listen
   rv = listen(fd, SOMAXCONN);
-  if(rv) { die ("listen()"); }
+  if (rv) {
+    die("listen()");
+  }
 
-
-  // accepts connections
-  while(true) {
+  while (true) {
+    // accept
     struct sockaddr_in client_addr = {};
-    socklen_t addrlen = sizeof(clientaddr);
-    soclen_t addrlen = sizeof(client_addr);
+    socklen_t addrlen = sizeof(client_addr);
     int connfd = accept(fd, (struct sockaddr *)&client_addr, &addrlen);
     if (connfd < 0) {
-      continue;
+      continue;   // error
     }
+
     do_something(connfd);
     close(connfd);
-
   }
 
   return 0;
-
 }
