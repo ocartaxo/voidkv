@@ -158,11 +158,20 @@ int main() {
     }
     // wait for readiness
     int rv = poll(poll_args.data(), (nfds_t)poll_args.size(), -1);
-    if (rv < 0 && ernno == EINTR) { continue; }
+    if (rv < 0 && errno == EINTR) { continue; }
     if (rv < 0) {
       die("poll");
     }
-    
+    // handle the listening socket
+    if (poll_args[0].revents) {
+      if (Conn *conn = handle_accept(fd)) {
+        // put it into the map
+        if(fd2conn.size() <= (size_t)conn->fd) {
+          fd2conn.resize(conn->fd + 1);
+        }
+        fd2conn[conn->fd] = conn;
+      }
+    }
   }
 
   return 0;
