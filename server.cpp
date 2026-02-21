@@ -157,8 +157,12 @@ int main() {
       poll_args.push_back(pfd);
     }
     // wait for readiness
-
-
+    int rv = poll(poll_args.data(), (nfds_t)poll_args.size(), -1);
+    if (rv < 0 && ernno == EINTR) { continue; }
+    if (rv < 0) {
+      die("poll");
+    }
+    
   }
 
   return 0;
