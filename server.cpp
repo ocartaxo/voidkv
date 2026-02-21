@@ -172,6 +172,19 @@ int main() {
         fd2conn[conn->fd] = conn;
       }
     }
+    
+    // handle connection sockets
+    for (size_t i = 1; i < poll_args.size(); i++) { // note: skip the 1st
+      uint32_t ready = poll_args[i].revents;
+      Conn *conn = fd2conn[poll_args[i].fd];
+      if (ready & POLLIN) {
+        handle_read(conn); // application logic
+      }
+      if (ready & POLLOUT) {
+        handle_write(conn); // application logic
+      }
+    }
+
   }
 
   return 0;
