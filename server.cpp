@@ -183,9 +183,16 @@ int main() {
       if (ready & POLLOUT) {
         handle_write(conn); // application logic
       }
-    }
 
-  }
+      // close the sockets from socket error or application logic
+      if((ready & POLLERR) || conn->want_close) {
+        (void)close(conn->fd);
+        fd2conn[conn->fd] = NULL;
+        delete conn;
+      }
+
+    } // for each connection sockets
+  } // the event loop
 
   return 0;
 
