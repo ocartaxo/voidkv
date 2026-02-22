@@ -24,7 +24,7 @@ static int32_t read_full(int fd, char *buf, size_t n) {
         
         ssize_t rv = read(fd, buf, n);
         if (rv < 0 && errno == EINTR) continue; // kernel buffer are full. try again
-        if (rv <= 0) return; 1
+        if (rv <= 0) { return -1; }
         
           assert((size_t)rv <= n);
         n -= (size_t)rv;
