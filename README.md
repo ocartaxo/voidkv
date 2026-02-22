@@ -10,14 +10,14 @@
 
 - Impact on processing the front buffer array: why normal vectors cause an $O(N^2)$ penalty when consuming commands in the middle of iterations.
 
-- Creation of the central Conn class/struct that memorizes the read/write state and buffers of that network connection.
+- Creation of the central `Conn` class/struct that memorizes the read/write state and buffers of that network connection.
 
-- Core implementation of the event matrix by dynamically manipulating a vector of struct pollfd instances passed to poll().
+- Core implementation of the event matrix by dynamically manipulating a vector of `struct pollfd` instances passed to `poll()`.
 
-- Native handling of the EINTR case and safe reading of newly accepted clients through the read notification flag (POLLIN).
+- Native handling of the `EINTR` case and safe reading of newly accepted clients through the read notification flag (`POLLIN`).
 
-- Creation of the state transition machine (want_read vs want_write), which decides in which direction the socket should be checked in the next iteration.
+- Creation of the state transition machine (`want_read` vs `want_write`), which decides in which direction the socket should be checked in the next iteration.
 
-- Critical read refactoring, swapping "if there's a request, process it" blocks for while(try_one_request(conn)) loops, ensuring the pipeline is drained.
+- Critical read refactoring, swapping "if there's a request, process it" blocks for `while(try_one_request(conn))` loops, ensuring the pipeline is drained.
 
-- Introduction and validation of the optimistic non-blocking write concept (trying to use write directly before returning to the event loop, saving a poll syscall).
+- Introduction and validation of the optimistic non-blocking write concept (trying to use `write` directly before returning to the event loop, saving a `poll` syscall).
