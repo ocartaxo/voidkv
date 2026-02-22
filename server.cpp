@@ -160,7 +160,7 @@ static void handle_write(Conn *conn) {
 
 
 int main() {
-  // obtain socket handle
+  // obtain listening socket handle
   int fd = socket(AF_INET, SOCK_STREAM, 0);
   if(fd < 0){
     die("socket()");
@@ -181,8 +181,10 @@ int main() {
     die("bind()");
   }
 
+   // set the listen fd to nonblocking mode
   fd_set_nb(fd);
 
+  // listen
   rv = listen(fd, SOMAXCONN);
   if(rv) { die ("listen()"); }
 
@@ -222,6 +224,7 @@ int main() {
         if(fd2conn.size() <= (size_t)conn->fd) {
           fd2conn.resize(conn->fd + 1);
         }
+        assert(!fd2conn[conn->fd]);
         fd2conn[conn->fd] = conn;
       }
     }
@@ -229,11 +232,16 @@ int main() {
     // handle connection sockets
     for (size_t i = 1; i < poll_args.size(); i++) { // note: skip the 1st
       uint32_t ready = poll_args[i].revents;
+
+      if(ready == 0) { continue; }
+
       Conn *conn = fd2conn[poll_args[i].fd];
       if (ready & POLLIN) {
+        assert(conn->want_read);
         handle_read(conn); // application logic
       }
       if (ready & POLLOUT) {
+        assert(conn->want_write);
         handle_write(conn); // application logic
       }
 
