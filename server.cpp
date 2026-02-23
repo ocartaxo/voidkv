@@ -52,7 +52,7 @@ static void fd_set_nb(int fd) {
 
 const size_t k_max_msg = 32 << 20;
 
-typedef struct Conn {
+struct Conn {
   int fd = -1;
   // application's intention, for event loop
   bool want_read = false;
@@ -125,6 +125,27 @@ static Conn *handle_accept(int fd) {
   return conn;
 }
 
+static void handle_write(Conn *conn) {
+  assert(conn->outgoing.size() > 0);
+  ssize_t rv = write(conn->fd, conn->outgoing.data(), conn->outgoing.size());
+  if (rv < 0 || errno == EAGAIN) {
+    return; // actually not ready
+  }
+  if (rv < 0) {
+    msg_errno("write() error");
+    conn->want_close = true; // error handling
+    return; 
+  }
+
+  // remove written data from `outgoing`
+  buf_consume(conn->outgoing, (size_t)rv);
+
+  if (conn->outgoing.size() == 0) {
+    conn->want_read = true;
+    conn->want_write = false;
+  } // else: want write
+}
+
 static void handle_read(Conn *conn) {
   // 1. Do a non-blocking read
   uint8_t buf[64 * 1024];
@@ -148,27 +169,6 @@ static void handle_read(Conn *conn) {
     // try to write it without waiting for the next iteration.
     return handle_write(conn); // optimization
   } 
-}
-
-static void handle_write(Conn *conn) {
-  assert(conn->outgoing.size() > 0);
-  ssize_t rv = write(conn->fd, conn->outgoing.data(), conn->outgoing.size());
-  if (rv < 0 || errno == EAGAIN) {
-    return; // actually not ready
-  }
-  if (rv < 0) {
-    msg_errno("write() error");
-    conn->want_close = true; // error handling
-    return; 
-  }
-
-  // remove written data from `outgoing`
-  buf_consume(conn->outgoing, (size_t)rv);
-
-  if (conn->outgoing.size() == 0) {
-    conn->want_read = true;
-    conn->want_write = false;
-  } // else: want write
 }
 
 int main() {
