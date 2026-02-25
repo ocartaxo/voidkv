@@ -2,8 +2,8 @@
 
 #include <stdint.h>
 #include <stdlib.h>
-
-#define BUFFER_CAPACITY 64*1024 // capacity of 64KB
+#include <string_view>
+#include <string>
 
 struct Buffer {
   uint8_t *buffer_begin = nullptr;
