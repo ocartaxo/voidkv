@@ -1,2 +1,2 @@
-# VoidKV: Key-value store on network
+# VoidKV: Key-Value Store on Network
 
