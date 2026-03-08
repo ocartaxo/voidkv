@@ -156,22 +156,6 @@ static int32_t parse_req(const uint8_t *data, size_t size, std::vector<std::stri
   return 0;
 }
 
-// Response::status
-enum {
-    RES_OK = 0,
-    RES_ERR = 1,    // error
-    RES_NX = 2,     // key not found
-};
-
-
-// +--------+---------+
-// | status | data... |
-// +--------+---------+
-struct Response {
-    uint32_t status = 0;
-    std::vector<uint8_t> data;
-};
-
 static struct {
     HMap db; // top-level hashtable
 } g_data;
@@ -199,7 +183,7 @@ static uint64_t str_hash(const uint8_t *data, size_t len) {
   return h;
 }
 
-static void do_get(std::vector<std::string> &cmd, Response &out) {
+static void do_get(std::vector<std::string> &cmd, Buffer &out) {
   // a dummy `Entry` just for the loop
   Entry key;
   key.key.swap(cmd[1]);
@@ -207,16 +191,14 @@ static void do_get(std::vector<std::string> &cmd, Response &out) {
   // hashtable lookup
   HNode *node = hm_lookup(&g_data.db, &key.node, &entry_eq);
   if(!node) {
-    out.status = RES_NX;
-    return;
+    return out_nil(out);
   }
   // copy the value
   const std::string &val = container_of(node, Entry, node)->val;
-  assert(val.size() <= k_max_msg);
-  out.data.assign(val.begin(), val.end());
+  return out_str(out, val.data(), val.size());
 }
 
-static void do_set(std::vector<std::string> &cmd, Response &) {
+static void do_set(std::vector<std::string> &cmd, Buffer &out) {
   // a dummy `Entry` just for the loop
   Entry key;
   key.key.swap(cmd[1]);
@@ -234,10 +216,10 @@ static void do_set(std::vector<std::string> &cmd, Response &) {
     ent->val.swap(cmd[2]);
     hm_insert(&g_data.db, &ent->node);
   }
-
+  return out_nil(out);
 }
 
-static void do_del(std::vector<std::string> &cmd, Response &) {
+static void do_del(std::vector<std::string> &cmd, Buffer &out) {
   // a dummy `Entry` just for the lookup
   Entry key;
   key.key.swap(cmd[1]);
@@ -247,10 +229,11 @@ static void do_del(std::vector<std::string> &cmd, Response &) {
   if (node) { // deallocate the pair
     delete container_of(node, Entry, node);
   }
+  return out_int(out, node ? 1 : 0);
 }
 
 
-static void do_request(std::vector<std::string> &cmd, Response &out) {
+static void do_request(std::vector<std::string> &cmd, Buffer &out) {
   if (cmd.size() == 2 && cmd[0] == "get") {
     return do_get(cmd, out);
   } else if (cmd.size() == 3 && cmd[0] == "set") {
@@ -258,42 +241,53 @@ static void do_request(std::vector<std::string> &cmd, Response &out) {
   } else if (cmd.size() == 2 && cmd[0] == "del") {
     return do_del(cmd, out);
   } else {
-    out.status = RES_ERR;       // unrecognized command
+    return out_err(out, ERR_UNKNOWN, "unknown command");       // unrecognized command
   }
 }
 
+static void response_begin(Buffer &out, size_t *header) {
+  *header = buf_size(out); // message header position
+  buf_append_u32(out, 0);  // reserve space
+}
 
-// The response data is copied twice, first from the key value to Response::data, then from Response::data to Conn::outgoing.
-// TODO: Optimize the code so that the response data goes directly to Conn::outgoing.
-static void make_response(const Response &resp, Buffer *out) {
-  uint32_t resp_len = 4 + (uint32_t)resp.data.size();
-  buf_append(out, (const uint8_t *)&resp_len, 4);
-  buf_append(out, (const uint8_t *)&resp.status, 4);
-  
-  if(!resp.data.empty()) {
-    buf_append(out, (const uint8_t *)resp.data.data(), resp.data.size());
+static size_t response_size(Buffer &out, size_t header) {
+  return buf_size(out) - header - 4;
+}
+
+static void response_end(Buffer &out, size_t header) {
+  size_t msg_size = response_size(out, header);
+  if (msg_size > k_max_msg) {
+    // resize buffer
+    out_err(out, ERR_TOO_BIG, "response is too big");
+    msg_size = response_size(out, header);
   }
+  // message header
+  uint32_t len = (uint32_t)msg_size;
+  memcpy(&out.data_begin[header], &len, 4);
 }
 
 // process 1 request if there is enough data
 static bool try_one_request(Conn *conn) {
   // 3. Try to parse the accumulated buffer.
   // Protocol: message header
-  if(buf_size(conn->incoming) < 4) {
+  if(buf_size(*conn->incoming) < 4) {
     return false; // want to read
   }
 
   uint32_t len = 0;
-  memcpy(&len, conn->incoming->data_begin, 4);
+  memcpy(&len, conn->incoming->buffer_begin, 4);
+
   if (len > k_max_msg) { // protocol error
     msg("too long");
+    fprintf(stderr, "len: %d k_max_msg: %ld\n", len, k_max_msg);
     conn->want_close = true;
     return false; // want close
   }
   // Protocol: message body
-  if (4 + len > buf_size(conn->incoming)) {
+  if (4 + len > buf_size(*conn->incoming)) {
     return false; // want read
   }
+
   const uint8_t *request = conn->incoming->data_begin + 4;
    
   // got one request, do some application logic
@@ -304,26 +298,20 @@ static bool try_one_request(Conn *conn) {
     return false;
   }
   
-  Response resp;
-  do_request(cmd, resp);
-  make_response(resp, conn->outgoing);
+  size_t header_pos = 0;
+  response_begin(*conn->outgoing, &header_pos);
+  do_request(cmd, *conn->outgoing);
+  response_end(*conn->outgoing, header_pos);
   
-  // printf("client says: len:%d data:%.*s\n", 
-  //   len, len < 100 ? len : 100, request);
+  // application logic done! remove thre request message.
+  buf_consume(*conn->incoming, 4 + len);
 
-  // // generate response
-  // buf_append(conn->outgoing, (const uint8_t *)&len, 4);
-  // buf_append(conn->outgoing, request, len);
-
-  // application logic done! remove the request message.
-  buf_consume(conn->incoming, 4 + len);
-
-  return true;
+  return true; // success
 }
 
 static void handle_write(Conn *conn) {
-  assert(buf_size(conn->outgoing) > 0);
-  ssize_t rv = write(conn->fd, conn->outgoing->data_begin, buf_size(conn->outgoing));
+  assert(buf_size(*conn->outgoing) > 0);
+  ssize_t rv = write(conn->fd, conn->outgoing->data_begin, buf_size(*conn->outgoing));
   if (rv < 0 && errno == EAGAIN) {
     return; // actually not ready
   }
@@ -334,13 +322,13 @@ static void handle_write(Conn *conn) {
   }
 
   // remove written data from `outgoing`
-  buf_consume(conn->outgoing, (size_t)rv);
+  buf_consume(*conn->outgoing, (size_t)rv);
 
-  if (buf_size(conn->outgoing) == 0) {
+  if (buf_size(*conn->outgoing) == 0) {
     conn->want_read = true;
     conn->want_write = false;
   } // else: want write
-}
+} 
 
 static void handle_read(Conn *conn) {
   // 1. Do a non-blocking read
@@ -359,7 +347,7 @@ static void handle_read(Conn *conn) {
 
   // handle EOF
   if (rv == 0) {
-    if (buf_size(conn->incoming) == 0) {
+    if (buf_size(*conn->incoming) == 0) {
       msg("client closed");
     } else {
       msg("unexpected EOF");
@@ -369,13 +357,15 @@ static void handle_read(Conn *conn) {
   }
   
   // got some new data
-  buf_append(conn->incoming, buf, (size_t)rv);
+  buf_append(*conn->incoming, buf, (size_t)rv);
+  
+  fprintf(stderr, "incoming: %d\n", *conn->incoming->data_begin);
   
   // parse request and generate responses  
   while(try_one_request(conn)) {}
 
   //update the readiness intention
-  if(buf_size(conn->outgoing) > 0) {
+  if(buf_size(*conn->outgoing) > 0) {
     conn->want_read = false;
     conn->want_write = true;
     // The socket is likely ready to write in a request-response protocol,
@@ -463,7 +453,7 @@ int main() {
     }
     
     // handle connection sockets
-    for (size_t i = 1; i < poll_args.size(); i++) { // note: skip the 1st
+    for (size_t i = 1; i < poll_args.size(); ++i) { // note: skip the 1st
       uint32_t ready = poll_args[i].revents;
 
       if(ready == 0) { continue; }
