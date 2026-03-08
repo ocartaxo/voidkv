@@ -8,7 +8,7 @@ all: server client
 
 # 3. Rule to compile the server
 # Dependencies: server.cpp, buffer.cpp, and buffer.h
-server: server.cpp buffer.cpp buffer.h
+server: server.cpp buffer.cpp hashtable.cpp buffer.h hashtable.h
 	@$(CXX) $(CXXFLAGS) server.cpp buffer.cpp hashtable.cpp -o server
 	@echo "server compiled successfully!"
 
