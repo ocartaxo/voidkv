@@ -1,4 +1,4 @@
-# VoidKV: Key-value store on network
+# VoidKV: Key-Value Store on Network
 
 ## About the project
 This project is a high-performance Key-Value Store implementation, developed in C/C++.
