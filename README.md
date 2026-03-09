@@ -64,4 +64,4 @@ The following milestones track the project's progress, organized by book chapter
 This project was built following the concepts detailed in the book [Build Your Own Redis](https://build-your-own.org/redis/). You can find more hands-on engeneering projects like this over at [build-your-own.org](https://build-your-own.org).
 
 ## License
-This project is licensed under the MIT License - see the [LICENSE] file for details.
+This project is licensed under the MIT License - see the [license](LICENSE) file for details.
