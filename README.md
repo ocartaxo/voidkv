@@ -25,8 +25,10 @@ To build and run this project, you will need:
 
 ### Installation
 1. Clone the repository:
-> git clone [https://github.com/ocartaxo/voidkv.git](https://github.com/ocartaxo/voidkv.git)
+```bash
+git clone https://github.com/ocartaxo/voidkv.git
 cd voidkv
+```
 
 2. Build the project using the Makefile
 > make
