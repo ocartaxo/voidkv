@@ -50,7 +50,7 @@ The following milestones track the project's progress, organized by book chapter
 - [x] [Chapter 6](https://github.com/ocartaxo/voidkv/tree/ch06)
 - [x] [Chapter 7](https://github.com/ocartaxo/voidkv/tree/ch07)
 - [x] [Chapter 8](https://github.com/ocartaxo/voidkv/tree/ch08)
-- [ ] [Chapter 9](https://github.com/ocartaxo/voidkv/tree/ch09)
+- [x] [Chapter 9](https://github.com/ocartaxo/voidkv/tree/ch09)
 - [ ] [Chapter 10](https://github.com/ocartaxo/voidkv/tree/ch10)
 - [ ] [Chapter 11](https://github.com/ocartaxo/voidkv/tree/ch11)
 - [ ] [Chapter 12](https://github.com/ocartaxo/voidkv/tree/ch12)
