@@ -51,6 +51,8 @@ void buf_consume(Buffer &buf, size_t n);
 
 void buf_append(Buffer &buf, const uint8_t *data, size_t len);
 
+void buf_resize(Buffer &buf, size_t new_capacity);
+
 void out_nil(Buffer &out);
 
 void out_str(Buffer &out, const char *s, size_t size);

@@ -232,6 +232,17 @@ static void do_del(std::vector<std::string> &cmd, Buffer &out) {
   return out_int(out, node ? 1 : 0);
 }
 
+static bool cb_keys(HNode *node, void *arg) {
+  Buffer &out = *(Buffer *)arg;
+  const std::string &key = container_of(node, Entry, node)->key;
+  out_str(out, key.data(), key.size());
+  return true;
+}
+
+static void do_keys(std::vector<std::string> &, Buffer &out) {
+  out_arr(out, (uint32_t)hm_size(&g_data.db));
+  hm_foreach(&g_data.db, &cb_keys, (void *)&out);
+}
 
 static void do_request(std::vector<std::string> &cmd, Buffer &out) {
   if (cmd.size() == 2 && cmd[0] == "get") {
@@ -240,6 +251,8 @@ static void do_request(std::vector<std::string> &cmd, Buffer &out) {
     return do_set(cmd, out);
   } else if (cmd.size() == 2 && cmd[0] == "del") {
     return do_del(cmd, out);
+  } else if (cmd.size() == 1 && cmd[0] == "keys") {
+    return do_keys(cmd, out);
   } else {
     return out_err(out, ERR_UNKNOWN, "unknown command");       // unrecognized command
   }
@@ -257,7 +270,7 @@ static size_t response_size(Buffer &out, size_t header) {
 static void response_end(Buffer &out, size_t header) {
   size_t msg_size = response_size(out, header);
   if (msg_size > k_max_msg) {
-    // resize buffer
+    buf_resize(out, header + 4);
     out_err(out, ERR_TOO_BIG, "response is too big");
     msg_size = response_size(out, header);
   }

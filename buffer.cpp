@@ -79,6 +79,7 @@ void buf_resize(Buffer &buf, size_t new_capacity) {
 
 }
 
+// handle endian-ness
 void buf_append_u8(Buffer &buf, uint8_t data) {
   buf_append(buf, &data, 1);
 }
