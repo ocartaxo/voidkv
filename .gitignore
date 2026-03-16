@@ -1,2 +1,8 @@
+# folders
+.vscode/
 redis/
+
+# outputs
+server
+client
 *.out
