@@ -1,11 +1,13 @@
-# Chapter 09: Data Serialization
+# Chapter 10: Balanced Binary Tree
 
--  The semantic superiority of explicit encoding against ambiguous encodings in databases; the fundamental difference between simple and complex types (schema vs. schemaless).
+- The Divide and conquer mechanics employed by binary trees as pillars for fast indexing for range queries.
 
--  Classic industrial TLV (*Tag-Length-Value*) binary pattern, simplifying the absence of syntactic keys like brackets/braces and avoiding manual byte escaping.
+- Guarantees and Invariants of the AVL Tree - why limiting subtrees to a maximum height difference of "1" preserves the unbreakable promise of $O(\log N)$ search.
 
--  Explicit establishment of the numbering list (enum) defining valid data: Null, Int, Double, String, and Array for assembling server Responses.
+- Theoretical understanding of Right/Left Rotations: the remapping of parent-child relations and preservation of middle elements.
 
--  Compact functions based on modular injection of binary packets directly into the vector buffer (`out_nil`, `out_int`, `out_arr`).
+- Robust definition of `AVLNode`, storing auxiliary `height` state without accumulating unnecessary `sizeof` space since it doesn't carry database Data payload.
 
--  Retroactive buffer reservation mechanics (saving `header_pos`), which adjusts the total packet size retroactively depending on the indefinite growth of the generated body.
+- Flexible generic algorithm for top-down updating (Height updates) of branches, and evaluation for imbalance and climbing (fix left / fix right).
+
+- Resolution of severe complexities in tree removals (Hard Case with two children), locating the leftmost successors of the right subtrees for contiguous swaps.
